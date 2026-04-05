@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ライバー収益計算ツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+
+    /* Header */
+    .app-header {
+      background: #2d3748;
+      color: #fff;
+      text-align: center;
+      padding: 18px 16px 0;
+    }
+    .app-header h1 { font-size: 1.15rem; font-weight: 700; margin-bottom: 14px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; justify-content: center; }
+    .tab-btn {
+      padding: 9px 18px;
+      background: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.7);
+      border: none; border-radius: 8px 8px 0 0;
+      font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: all 0.15s;
+    }
+    .tab-btn.active { background: #f0f4f8; color: #2d3748; }
+
+    /* Panels */
+    .panel { display: none; padding: 20px 16px 0; }
+    .panel.active { display: block; }
+
+    .container {
+      max-width: 640px; margin: 0 auto;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    /* Cards */
+    .card {
+      background: #fff; border-radius: 12px;
+      padding: 20px 22px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .card-title {
+      font-size: 0.78rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: #718096; margin-bottom: 14px;
+    }
+    .card.liver   { border-left: 4px solid #48bb78; }
+    .card.office  { border-left: 4px solid #ed8936; }
+    .card.agent   { border-left: 4px solid #9f7aea; }
+    .card.tiktok  { border-left: 4px solid #fe2c55; }
+    .card.compare { border-left: 4px solid #4299e1; }
+    .card.reverse { border-left: 4px solid #805ad5; }
+
+    /* Form */
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .field:last-of-type { margin-bottom: 0; }
+    .field label { font-size: 0.88rem; font-weight: 600; color: #4a5568; }
+    .field-note { font-size: 0.75rem; color: #a0aec0; }
+
+    .input-row { display: flex; align-items: center; gap: 8px; }
+    .input-row input[type="number"],
+    .input-row select {
+      flex: 1; padding: 10px 12px;
+      font-size: 1rem; border: 2px solid #e2e8f0;
+      border-radius: 8px; outline: none;
+      transition: border-color 0.15s; font-family: inherit;
+    }
+    .input-row input:focus, .input-row select:focus { border-color: #4299e1; }
+    .unit { font-size: 0.88rem; color: #718096; white-space: nowrap; }
+
+    .checkbox-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; background: #f7fafc; border-radius: 8px;
+      cursor: pointer; user-select: none;
+    }
+    .checkbox-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+    .checkbox-row span { font-size: 0.9rem; color: #4a5568; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 420px) { .form-grid { grid-template-columns: 1fr; } }
+
+    .calc-btn {
+      width: 100%; padding: 12px;
+      background: #4299e1; color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 700;
+      cursor: pointer; margin-top: 14px;
+      transition: background 0.15s; font-family: inherit;
+    }
+    .calc-btn:hover  { background: #3182ce; }
+    .calc-btn.purple { background: #805ad5; }
+    .calc-btn.purple:hover { background: #6b46c1; }
+
+    /* Result rows */
+    .result-row {
+      display: flex; justify-content: space-between;
+      align-items: center; padding: 8px 0;
+      border-bottom: 1px solid #f7fafc; gap: 12px;
+    }
+    .result-row:last-child { border-bottom: none; }
+    .result-label { font-size: 0.88rem; color: #4a5568; flex: 1; }
+    .result-value { font-size: 0.95rem; font-weight: 600; color: #2d3748; white-space: nowrap; }
+    .result-value.big     { font-size: 1.1rem; color: #2b6cb0; }
+    .result-value.green   { font-size: 1.1rem; color: #276749; }
+    .result-value.red     { color: #e53e3e; }
+    .result-value.muted   { color: #a0aec0; font-weight: 400; font-size: 0.85rem; }
+    .result-value.orange  { color: #c05621; }
+
+    .divider { border-top: 2px solid #edf2f7; margin: 8px 0; }
+
+    /* Info box */
+    .info-box {
+      background: #ebf8ff; border-radius: 8px;
+      padding: 12px 14px; margin-top: 14px;
+      font-size: 0.82rem; color: #2c5282; line-height: 1.6;
+    }
+    .info-box.green { background: #f0fff4; color: #276749; }
+    .info-box.yellow { background: #fffff0; color: #744210; }
+
+    /* Tier table */
+    .tier-toggle {
+      margin-top: 12px; font-size: 0.8rem; color: #4299e1;
+      cursor: pointer; text-decoration: underline;
+      background: none; border: none; padding: 0; font-family: inherit;
+    }
+    .tier-table { display: none; margin-top: 10px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+    .tier-table.open { display: block; }
+    .tier-table table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .tier-table th { background: #f7fafc; padding: 6px 10px; text-align: left; color: #718096; font-weight: 600; border-bottom: 1px solid #e2e8f0; }
+    .tier-table td { padding: 6px 10px; border-bottom: 1px solid #f7fafc; }
+    .tier-table tr:last-child td { border-bottom: none; }
+    .tier-table tr.active-tier td { background: #ebf8ff; font-weight: 600; color: #2b6cb0; }
+
+    /* Placeholder */
+    .placeholder { text-align: center; color: #a0aec0; font-size: 0.88rem; padding: 10px 0; }
+
+    /* Section heading */
+    .section-label {
+      font-size: 0.75rem; font-weight: 700;
+      color: #a0aec0; text-transform: uppercase;
+      letter-spacing: 0.06em; margin: 14px 0 8px;
+      border-top: 1px dashed #e2e8f0; padding-top: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>ライバー収益計算ツール</h1>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('calc', this)">17LIVE 収益計算</button>
+    <button class="tab-btn" onclick="switchTab('sim', this)">TikTok ↔ 17LIVE 比較</button>
+  </div>
+</div>
+
+<!-- ===== Tab 1: 17LIVE ===== -->
+<div class="panel active" id="panel-calc">
+  <div class="container">
+
+    <div class="card">
+      <div class="card-title">コイン数を入力</div>
+      <div class="field">
+        <label for="coins">ベイビーコイン数（BC）</label>
+        <div class="input-row">
+          <input type="number" id="coins" placeholder="例: 750000" min="0" step="1">
+          <span class="unit">BC</span>
+        </div>
+      </div>
+      <button class="calc-btn" onclick="calc17()">計算する</button>
+    </div>
+
+    <div class="card liver">
+      <div class="card-title">ライバー収益</div>
+      <div id="result-liver"><div class="placeholder">コイン数を入力して計算してください</div></div>
+      <button class="tier-toggle" onclick="toggleTier('liver-tier')">▼ ボーナス階層表</button>
+      <div class="tier-table" id="liver-tier">
+        <table>
+          <thead><tr><th>BC（以上）</th><th>BC（以下）</th><th>ライバーボーナス</th></tr></thead>
+          <tbody id="liver-tier-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card office">
+      <div class="card-title">事務所収益</div>
+      <div id="result-office"><div class="placeholder">コイン数を入力して計算してください</div></div>
+    </div>
+
+    <div class="card agent">
+      <div class="card-title">エージェント収益</div>
+      <div id="result-agent"><div class="placeholder">コイン数を入力して計算してください</div></div>
+      <button class="tier-toggle" onclick="toggleTier('agent-tier')">▼ ボーナス階層表</button>
+      <div class="tier-table" id="agent-tier">
+        <table>
+          <thead><tr><th>BC（以上）</th><th>BC（以下）</th><th>エージェントボーナス</th></tr></thead>
+          <tbody id="agent-tier-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== Tab 2: 比較シミュレーター ===== -->
+<div class="panel" id="panel-sim">
+  <div class="container">
+
+    <!-- TikTok入力 -->
+    <div class="card tiktok">
+      <div class="card-title">TikTok 条件を入力</div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>獲得ダイヤ数</label>
+          <div class="input-row">
+            <input type="number" id="tt-diamonds" placeholder="例: 200000" min="0" step="1">
+            <span class="unit">ダイヤ</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>為替レート</label>
+          <div class="input-row">
+            <input type="number" id="tt-rate" value="156" min="1" step="1">
+            <span class="unit">円/ドル</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>月間配信時間</label>
+          <div class="input-row">
+            <input type="number" id="tt-hours" placeholder="例: 60" min="0" step="1">
+            <span class="unit">時間</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>月間配信日数</label>
+          <div class="input-row">
+            <input type="number" id="tt-days" placeholder="例: 18" min="0" max="31" step="1">
+            <span class="unit">日</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>前月ランク</label>
+          <div class="input-row">
+            <select id="tt-prev-rank">
+              <option value="0">わからない</option>
+              <option value="1">ランク1（新規）</option>
+              <option value="2">ランク2（10万〜）</option>
+              <option value="3">ランク3（20万〜）</option>
+              <option value="4">ランク4（30万〜）</option>
+              <option value="5">ランク5（50万〜）</option>
+              <option value="6">ランク6（100万〜）</option>
+              <option value="7">ランク7（160万〜）</option>
+              <option value="8">ランク8（300万〜）</option>
+              <option value="9">ランク9（500万〜）</option>
+              <option value="10">ランク10（800万〜）</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="justify-content: flex-end;">
+          <label>優良クリエイター</label>
+          <label class="checkbox-row" style="margin-top:auto;">
+            <input type="checkbox" id="tt-premium">
+            <span>対象（○）</span>
+          </label>
+        </div>
+      </div>
+
+      <button class="calc-btn" onclick="calcTikTok()">シミュレーションする</button>
+    </div>
+
+    <!-- TikTok結果 -->
+    <div class="card tiktok" id="tt-result-card">
+      <div class="card-title">TikTok 収益内訳</div>
+      <div id="tt-result"><div class="placeholder">条件を入力してシミュレーションしてください</div></div>
+    </div>
+
+    <!-- 17LIVE比較 -->
+    <div class="card compare" id="compare-result-card">
+      <div class="card-title">17LIVE との比較</div>
+      <div id="compare-result"><div class="placeholder">TikTok収益を計算すると、17LIVE換算が表示されます</div></div>
+    </div>
+
+    <!-- 逆引き -->
+    <div class="card reverse">
+      <div class="card-title">逆引き：17LIVE BC → TikTok ダイヤ換算</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>17LIVE ベイビーコイン</label>
+          <div class="input-row">
+            <input type="number" id="rev-bc" placeholder="例: 1500000" min="0" step="1">
+            <span class="unit">BC</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>為替レート</label>
+          <div class="input-row">
+            <input type="number" id="rev-rate" value="156" min="1" step="1">
+            <span class="unit">円/ドル</span>
+          </div>
+        </div>
+      </div>
+      <button class="calc-btn purple" onclick="reverseCalc()">逆引き計算する</button>
+      <div id="rev-result" style="margin-top:14px;"><div class="placeholder">BCを入力して逆引き計算してください</div></div>
+    </div>
+
+    <!-- リスナー課金計算 -->
+    <div class="card" style="border-left: 4px solid #f6ad55;">
+      <div class="card-title">リスナー課金シミュレーター</div>
+      <p style="font-size:0.85rem;color:#4a5568;margin-bottom:14px;">
+        「ライバーが○○ダイヤ獲得するには、リスナーはいくら課金が必要？」を計算します。
+      </p>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>目標ダイヤ数</label>
+          <div class="input-row">
+            <input type="number" id="fan-diamonds" placeholder="例: 200000" min="0" step="1">
+            <span class="unit">ダイヤ</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>コイン単価
+            <span class="field-note">（TikTokアプリで確認）</span>
+          </label>
+          <div class="input-row">
+            <input type="number" id="fan-coin-price" value="1.85" min="0.01" step="0.01">
+            <span class="unit">円/コイン</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>コイン→ダイヤ変換率
+            <span class="field-note">（1コイン送ると何ダイヤ？）</span>
+          </label>
+          <div class="input-row">
+            <input type="number" id="fan-ratio" value="1" min="0.1" step="0.1">
+            <span class="unit">ダイヤ/コイン</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>為替レート</label>
+          <div class="input-row">
+            <input type="number" id="fan-exrate" value="156" min="1" step="1">
+            <span class="unit">円/ドル</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="calc-btn" style="background:#dd6b20;" onclick="calcFan()">計算する</button>
+      <div id="fan-result" style="margin-top:14px;"><div class="placeholder">ダイヤ数とコイン情報を入力してください</div></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ==================== 17LIVE Data ====================
+const LIVER_TIERS = [
+  { min: 250001,    max: 750000,    bonus: 10000 },
+  { min: 750001,    max: 1250000,   bonus: 30000 },
+  { min: 1250001,   max: 2500000,   bonus: 50000 },
+  { min: 2500001,   max: 7500000,   bonus: 100000 },
+  { min: 7500001,   max: 12500000,  bonus: 130000 },
+  { min: 12500001,  max: 20000000,  bonus: 160000 },
+  { min: 20000001,  max: 25000000,  bonus: 190000 },
+  { min: 25000001,  max: 125000000, bonus: 270000 },
+  { min: 125000001, max: Infinity,  bonus: 350000 },
+];
+const AGENT_TIERS = [
+  { min: 250001,    max: 750000,    bonus: 5000 },
+  { min: 750001,    max: 1250000,   bonus: 20000 },
+  { min: 1250001,   max: 2500000,   bonus: 30000 },
+  { min: 2500001,   max: 7500000,   bonus: 50000 },
+  { min: 7500001,   max: 12500000,  bonus: 70000 },
+  { min: 12500001,  max: 20000000,  bonus: 90000 },
+  { min: 20000001,  max: 25000000,  bonus: 110000 },
+  { min: 25000001,  max: 125000000, bonus: 130000 },
+  { min: 125000001, max: Infinity,  bonus: 350000 },
+];
+const TAX_RATE = 0.1021;
+
+// ==================== TikTok Data ====================
+// Rank thresholds (diamonds/month)
+const TT_RANKS = [0, 100000, 200000, 300000, 500000, 1000000, 1600000, 3000000, 5000000, 8000000];
+
+// ランクアップインセンティブ rates [向上, 維持] per diamond in USD
+const TT_RANKUP = [
+  [0,       0      ],  // rank 1
+  [0.00055, 0      ],  // rank 2
+  [0.00055, 0.00015],  // rank 3
+  [0.00035, 0.00015],  // rank 4
+  [0.00035, 0.00015],  // rank 5
+  [0.00035, 0.00015],  // rank 6
+  [0.00035, 0.00015],  // rank 7
+  [0.00035, 0.0001 ],  // rank 8
+  [0.0002,  0.0001 ],  // rank 9
+  [0.0002,  0.0001 ],  // rank 10
+];
+
+// アクティブ度インセンティブ [minHours, minDays, rate $/diamond] 降順
+const TT_ACTIVE = [
+  { minH: 110, minD: 22, rate: 0.0004 },
+  { minH: 90,  minD: 20, rate: 0.0003 },
+  { minH: 70,  minD: 18, rate: 0.0002 },
+  { minH: 45,  minD: 15, rate: 0.0001 },
+  { minH: 25,  minD: 8,  rate: 0.00005 },
+];
+
+// 優良クリエイターインセンティブ [minHours, minDays, rate $/diamond] 降順
+const TT_PREMIUM = [
+  { minH: 80, minD: 22, rate: 0.002  },
+  { minH: 60, minD: 18, rate: 0.0012 },
+  { minH: 36, minD: 15, rate: 0.0008 },
+  { minH: 15, minD: 7,  rate: 0.0005 },
+];
+
+// ==================== Helpers ====================
+function getTierBonus(coins, tiers) {
+  for (const t of tiers) {
+    if (coins >= t.min && coins <= t.max) return t.bonus;
+  }
+  return 0;
+}
+
+function getActiveTierIndex(coins, tiers) {
+  for (let i = 0; i < tiers.length; i++) {
+    if (coins >= tiers[i].min && coins <= tiers[i].max) return i;
+  }
+  return -1;
+}
+
+function fmt(n)   { return Math.round(n).toLocaleString('ja-JP') + ' 円'; }
+function fmtBC(n) { return Math.round(n).toLocaleString('ja-JP') + ' BC'; }
+function fmtUSD(n){ return n.toFixed(2) + ' ドル'; }
+
+function row(label, value, cls = '') {
+  return `<div class="result-row">
+    <span class="result-label">${label}</span>
+    <span class="result-value ${cls}">${value}</span>
+  </div>`;
+}
+
+// 17LIVE liver earnings from BC
+function liverEarnings(coins) {
+  const base  = Math.round(coins * 0.2 * 0.35);
+  const bonus = getTierBonus(coins, LIVER_TIERS);
+  const total = base + bonus;
+  const tax   = Math.round(total * TAX_RATE * 10) / 10;
+  const net   = total - tax;
+  return { base, bonus, total, tax, net };
+}
+
+// Find BC so that liver total ≈ targetYen (iterate to account for bonus)
+function bcForLiverYen(targetYen) {
+  let coins = Math.round(targetYen / 0.07);
+  for (let i = 0; i < 5; i++) {
+    const bonus = getTierBonus(coins, LIVER_TIERS);
+    const newCoins = Math.round((targetYen - bonus) / 0.07);
+    if (Math.abs(newCoins - coins) < 1) break;
+    coins = newCoins;
+  }
+  return Math.max(0, coins);
+}
+
+// TikTok rank from diamonds
+function ttRank(diamonds) {
+  let rank = 1;
+  for (let i = TT_RANKS.length - 1; i >= 0; i--) {
+    if (diamonds >= TT_RANKS[i]) { rank = i + 1; break; }
+  }
+  return rank;
+}
+
+// TikTok lookup rate
+function lookupRate(hours, days, table) {
+  for (const t of table) {
+    if (hours >= t.minH && days >= t.minD) return t.rate;
+  }
+  return 0;
+}
+
+// ==================== Tab switching ====================
+function switchTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ==================== 17LIVE Calculator ====================
+function calc17() {
+  const coins = parseInt(document.getElementById('coins').value, 10);
+  if (!coins || coins < 0) { alert('コイン数を正しく入力してください'); return; }
+
+  const { base, bonus, total, tax, net } = liverEarnings(coins);
+
+  let h = '';
+  h += row('基本報酬', fmt(base));
+  h += bonus > 0 ? row('ボーナス', fmt(bonus)) : row('ボーナス', '<span class="muted">対象外（25万BC未満）</span>');
+  h += '<div class="divider"></div>';
+  h += row('合計（源泉前）', fmt(total));
+  h += row('源泉徴収（10.21%）', '−' + fmt(tax), 'red');
+  h += '<div class="divider"></div>';
+  h += row('手取り（目安）', fmt(net), 'big');
+  document.getElementById('result-liver').innerHTML = h;
+
+  const offBase = Math.round(coins * 0.2 * 0.25);
+  const offTax  = Math.round(offBase * TAX_RATE * 10) / 10;
+  h  = row('基本報酬（25%）', fmt(offBase));
+  h += '<div class="divider"></div>';
+  h += row('源泉徴収（10.21%）', '−' + fmt(offTax), 'red');
+  h += '<div class="divider"></div>';
+  h += row('手取り（目安）', fmt(offBase - offTax), 'big');
+  document.getElementById('result-office').innerHTML = h;
+
+  const agBase  = Math.round(coins * 0.2 * 0.1);
+  const agBonus = getTierBonus(coins, AGENT_TIERS);
+  const agTotal = agBase + agBonus;
+  h  = row('基本報酬（10%）', fmt(agBase));
+  h += agBonus > 0 ? row('ボーナス', fmt(agBonus)) : row('ボーナス', '<span class="muted">対象外</span>');
+  h += '<div class="divider"></div>';
+  h += row('合計', fmt(agTotal), 'big');
+  h += '<div class="divider"></div>';
+  h += row('直紹介分（40%）', fmt(Math.round(agBase * 0.4)), 'muted');
+  h += row('間接紹介分（20%）', fmt(Math.round(agBase * 0.2)), 'muted');
+  h += row('その他分（10%）', fmt(Math.round(agBase * 0.1)), 'muted');
+  document.getElementById('result-agent').innerHTML = h;
+
+  renderTierTable('liver-tier-body', LIVER_TIERS, coins);
+  renderTierTable('agent-tier-body', AGENT_TIERS, coins);
+}
+
+// ==================== TikTok Simulation ====================
+function calcTikTok() {
+  const diamonds = parseInt(document.getElementById('tt-diamonds').value, 10);
+  const exRate   = parseFloat(document.getElementById('tt-rate').value) || 156;
+  const hours    = parseInt(document.getElementById('tt-hours').value, 10) || 0;
+  const days     = parseInt(document.getElementById('tt-days').value, 10) || 0;
+  const premium  = document.getElementById('tt-premium').checked;
+  const prevRank = parseInt(document.getElementById('tt-prev-rank').value, 10);
+
+  if (!diamonds || diamonds < 0) { alert('ダイヤ数を入力してください'); return; }
+
+  // Ranks
+  const curRank  = ttRank(diamonds);
+  const rankChange = prevRank === 0 ? '不明' : curRank > prevRank ? '向上' : curRank === prevRank ? '維持' : '減少';
+
+  // 1. Base pay (直接ライバーへ)
+  const baseUSD  = diamonds * 0.005;
+  const baseYen  = Math.round(baseUSD * exRate);
+
+  // 2. Agency incentives (エージェント経由)
+  const activeRate  = (hours > 0 && days > 0 && diamonds >= 100) ? lookupRate(hours, days, TT_ACTIVE)  : 0;
+  const premRate    = (premium && hours > 0 && days > 0)          ? lookupRate(hours, days, TT_PREMIUM) : 0;
+
+  let rankupRate = 0;
+  if (prevRank > 0 && hours >= 15 && days >= 7) {
+    const rIdx = curRank - 1;
+    if (rankChange === '向上') rankupRate = TT_RANKUP[rIdx][0];
+    else if (rankChange === '維持') rankupRate = TT_RANKUP[rIdx][1];
+  }
+
+  const activeDiamonds = Math.min(diamonds, Infinity); // 全ダイヤ対象
+  const premDiamonds   = Math.min(diamonds, 10000000); // 優良は1000万上限
+
+  const activeUSD  = activeDiamonds * activeRate;
+  const premUSD    = premDiamonds   * premRate;
+  const rankupUSD  = diamonds       * rankupRate;
+
+  const totalIncentiveUSD = activeUSD + premUSD + rankupUSD;
+  const incentiveLiver    = Math.round(totalIncentiveUSD * 0.8 * exRate);  // 80%→ライバー
+  const incentiveAgent    = Math.round(totalIncentiveUSD * 0.2 * exRate);  // 20%→エージェント
+
+  const liverTotalYen = baseYen + incentiveLiver;
+
+  // Result HTML
+  let h = '';
+
+  // ランク情報
+  h += `<div class="info-box">`;
+  h += `今月ランク：<strong>ランク ${curRank}</strong>（必要ダイヤ ${TT_RANKS[curRank-1].toLocaleString()}〜）`;
+  if (prevRank > 0) h += `　　前月比：<strong>${rankChange}</strong>（前月ランク${prevRank}）`;
+  h += `</div>`;
+
+  h += '<div class="section-label">ライバー基本報酬（TikTokより直接支払い）</div>';
+  h += row(`ダイヤ × $0.005 × ${exRate}円`, fmt(baseYen));
+  h += `<div class="info-box yellow" style="margin-top:8px;font-size:0.78rem;">手数料：銀行振込 $3 / PayPal等 支払額の1.5%（換金時に差引）</div>`;
+
+  h += '<div class="section-label">エージェントインセンティブ（事務所経由）</div>';
+
+  const showIncentive = hours > 0 && days > 0;
+  if (!showIncentive) {
+    h += `<div class="info-box">配信時間・配信日数を入力するとインセンティブも計算されます</div>`;
+  } else {
+    const fmtRate = r => r > 0 ? `$${r}/ダイヤ` : '<span class="muted">対象外</span>';
+    h += row('アクティブ度インセンティブ（レート）', fmtRate(activeRate));
+    h += row('　└ 金額（ドル）', activeRate > 0 ? fmtUSD(activeUSD) : '<span class="muted">—</span>');
+    h += row('優良クリエイターインセンティブ（レート）', premium ? fmtRate(premRate) : '<span class="muted">○対象外</span>');
+    h += row('　└ 金額（ドル）', premRate > 0 ? fmtUSD(premUSD) : '<span class="muted">—</span>');
+    h += row('ランクアップインセンティブ（レート）', prevRank > 0 ? fmtRate(rankupRate) : '<span class="muted">前月ランク未設定</span>');
+    h += row('　└ 金額（ドル）', rankupRate > 0 ? fmtUSD(rankupUSD) : '<span class="muted">—</span>');
+    h += '<div class="divider"></div>';
+    h += row('インセンティブ合計', fmtUSD(totalIncentiveUSD));
+    h += row('　うちライバーへ（80%）', fmt(incentiveLiver));
+    h += row('　うちエージェントへ（20%）', fmt(incentiveAgent), 'orange');
+  }
+
+  h += '<div class="divider"></div>';
+  h += row('ライバー総収益（基本＋インセンティブ80%）', fmt(liverTotalYen), 'big');
+
+  document.getElementById('tt-result').innerHTML = h;
+
+  // 17LIVE比較
+  const bc17    = bcForLiverYen(liverTotalYen);
+  const e17     = liverEarnings(bc17);
+  const tierIdx = getActiveTierIndex(bc17, LIVER_TIERS);
+  const tierStr = tierIdx >= 0
+    ? `ボーナス対象（+${LIVER_TIERS[tierIdx].bonus.toLocaleString()} 円）`
+    : 'ボーナス対象外（25万BC未満）';
+
+  let c = '';
+  c += `<div class="info-box green">`;
+  c += `TikTok ${diamonds.toLocaleString()} ダイヤ ≈ ${fmt(liverTotalYen)} のライバー収益<br>`;
+  c += `17LIVE では <strong>${Math.round(bc17).toLocaleString()} BC</strong> 相当`;
+  c += `</div>`;
+  c += '<div class="section-label">17LIVE 内訳（同等BC獲得時）</div>';
+  c += row('必要BC数（目安）', fmtBC(bc17));
+  c += row('基本報酬', fmt(e17.base));
+  if (e17.bonus > 0) c += row(`ボーナス（${tierStr}）`, fmt(e17.bonus));
+  else c += row('ボーナス', `<span class="muted">${tierStr}</span>`);
+  c += '<div class="divider"></div>';
+  c += row('合計（源泉前）', fmt(e17.total));
+  c += row('源泉徴収（10.21%）', '−' + fmt(e17.tax), 'red');
+  c += '<div class="divider"></div>';
+  c += row('手取り（目安）', fmt(e17.net), 'green');
+
+  document.getElementById('compare-result').innerHTML = c;
+}
+
+// ==================== 逆引き ====================
+function reverseCalc() {
+  const bc     = parseInt(document.getElementById('rev-bc').value, 10);
+  const exRate = parseFloat(document.getElementById('rev-rate').value) || 156;
+
+  if (!bc || bc < 0) { alert('BCを入力してください'); return; }
+
+  const e17        = liverEarnings(bc);
+  const ttDiamonds = Math.round(e17.total / (0.005 * exRate));
+
+  let h = '';
+  h += row('17LIVE BC数', fmtBC(bc));
+  h += row('17LIVE 収益（税前）', fmt(e17.total));
+  h += '<div class="divider"></div>';
+  h += row('相当するTikTokダイヤ数', ttDiamonds.toLocaleString() + ' ダイヤ', 'big');
+  h += row('　→ TikTokランク', 'ランク ' + ttRank(ttDiamonds));
+  h += `<div class="info-box" style="margin-top:10px;font-size:0.78rem;">※ 基本報酬のみでの比較です（インセンティブは含まず）<br>為替レート：${exRate}円/ドル</div>`;
+
+  document.getElementById('rev-result').innerHTML = h;
+}
+
+// ==================== Tier table ====================
+function renderTierTable(tbodyId, tiers, coins) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  const activeIdx = getActiveTierIndex(coins, tiers);
+  tbody.innerHTML = tiers.map((t, i) => {
+    const maxLabel = t.max === Infinity ? '∞' : t.max.toLocaleString();
+    const cls = i === activeIdx ? ' class="active-tier"' : '';
+    return `<tr${cls}>
+      <td>${t.min.toLocaleString()}</td>
+      <td>${maxLabel}</td>
+      <td>${t.bonus.toLocaleString()} 円${i === activeIdx ? ' ✓' : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleTier(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+// ==================== リスナー課金計算 ====================
+function calcFan() {
+  const diamonds  = parseInt(document.getElementById('fan-diamonds').value, 10);
+  const coinPrice = parseFloat(document.getElementById('fan-coin-price').value);
+  const ratio     = parseFloat(document.getElementById('fan-ratio').value);
+  const exRate    = parseFloat(document.getElementById('fan-exrate').value) || 156;
+
+  if (!diamonds || diamonds < 0) { alert('目標ダイヤ数を入力してください'); return; }
+  if (!coinPrice || coinPrice <= 0) { alert('コイン単価を入力してください'); return; }
+  if (!ratio || ratio <= 0) { alert('変換率を入力してください'); return; }
+
+  // コイン数 = ダイヤ数 ÷ 変換率
+  const coinsNeeded = Math.ceil(diamonds / ratio);
+  const fanYen      = Math.ceil(coinsNeeded * coinPrice);
+
+  // ライバーが受け取る金額
+  const liverUSD = diamonds * 0.005;
+  const liverYen = Math.round(liverUSD * exRate);
+
+  // プラットフォーム手数料
+  const platformYen = fanYen - liverYen;
+  const platformPct = fanYen > 0 ? Math.round((platformYen / fanYen) * 100) : 0;
+
+  let h = '';
+  h += `<div class="info-box" style="background:#fffaf0;color:#7b341e;">`;
+  h += `リスナーは <strong>${fanYen.toLocaleString()} 円</strong> の課金が必要です`;
+  h += `</div>`;
+
+  h += '<div class="section-label" style="border-top:none;margin-top:12px;">内訳</div>';
+  h += row('必要コイン数', coinsNeeded.toLocaleString() + ' コイン');
+  h += row('コイン単価', coinPrice.toFixed(2) + ' 円/コイン');
+  h += row('リスナー総課金額', fanYen.toLocaleString() + ' 円', 'big');
+  h += '<div class="divider"></div>';
+  h += row('ライバーが受け取る金額', fmt(liverYen), 'green');
+  h += row('プラットフォームの取り分', `${fmt(platformYen)}（約${platformPct}%）`, 'red');
+  h += '<div class="divider"></div>';
+  h += row('リスナー1人が全額課金した場合', fanYen.toLocaleString() + ' 円');
+  h += row('10人で割り勘の場合', Math.ceil(fanYen / 10).toLocaleString() + ' 円/人');
+  h += row('50人で割り勘の場合', Math.ceil(fanYen / 50).toLocaleString() + ' 円/人');
+  h += row('100人で割り勘の場合', Math.ceil(fanYen / 100).toLocaleString() + ' 円/人');
+
+  h += `<div class="info-box" style="margin-top:12px;font-size:0.78rem;">
+    ※ コイン単価・変換率は購入パッケージや時期によって変動します。<br>
+    TikTokアプリ内の「コイン購入」画面で最新の価格をご確認ください。
+  </div>`;
+
+  document.getElementById('fan-result').innerHTML = h;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    if (document.getElementById('panel-calc').classList.contains('active')) calc17();
+    else calcTikTok();
+  }
+});
+
+renderTierTable('liver-tier-body', LIVER_TIERS, -1);
+renderTierTable('agent-tier-body', AGENT_TIERS, -1);
+</script>
+</body>
+</html>
