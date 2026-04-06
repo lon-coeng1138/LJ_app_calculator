@@ -193,6 +193,7 @@
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('calc', this)">17LIVE 収益計算</button>
     <button class="tab-btn" onclick="switchTab('sim', this)">TikTok ↔ 17LIVE 比較</button>
+    <button class="tab-btn" onclick="switchTab('poco', this)">ポコチャ</button>
   </div>
 </div>
 
@@ -390,6 +391,47 @@
 
       <button class="calc-btn" style="background:#dd6b20;" onclick="calcFan()">計算する</button>
       <div id="fan-result" style="margin-top:14px;"><div class="placeholder">ダイヤ数とコイン情報を入力してください</div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== Tab 3: ポコチャ ===== -->
+<div class="panel" id="panel-poco">
+  <div class="container">
+
+    <div class="card">
+      <div class="card-title">ポコチャ Pダイヤ入力</div>
+      <div class="field">
+        <label for="poco-diamonds">Pダイヤ数</label>
+        <div class="input-row">
+          <input type="number" id="poco-diamonds" placeholder="例: 316666" min="0" step="1">
+          <span class="unit">Pダイヤ</span>
+        </div>
+      </div>
+      <div class="info-box" style="margin-top:0;margin-bottom:4px;">
+        ※ 1Pダイヤ = ¥1.08（ライバー受取単価）<br>
+        ※ エージェント手数料等の詳細は確認中
+      </div>
+      <button class="calc-btn" onclick="calcPoco()">計算する</button>
+    </div>
+
+    <div class="card liver">
+      <div class="card-title">ライバー収益（概算）</div>
+      <div id="poco-result"><div class="placeholder">Pダイヤ数を入力して計算してください</div></div>
+    </div>
+
+    <div class="card compare">
+      <div class="card-title">他プラットフォーム換算</div>
+      <div id="poco-compare"><div class="placeholder">Pダイヤ数を入力して計算してください</div></div>
+    </div>
+
+    <div class="card" style="border-left:4px solid #68d391;">
+      <div class="card-title">プロ昇格ライン 参考値</div>
+      <div class="result-row"><span class="result-label">ポコチャ</span><span class="result-value">316,666 Pダイヤ</span></div>
+      <div class="result-row"><span class="result-label">17LIVE</span><span class="result-value">610,714 BC</span></div>
+      <div class="result-row"><span class="result-label">TikTok</span><span class="result-value">200,000 ダイヤ</span></div>
+      <div class="result-row"><span class="result-label">換算額</span><span class="result-value green">¥342,000</span></div>
     </div>
 
   </div>
@@ -769,10 +811,43 @@ function calcFan() {
   document.getElementById('fan-result').innerHTML = h;
 }
 
+// ==================== ポコチャ ====================
+const POCO_RATE = 1.08;   // 1Pダイヤ あたりのライバー受取額（円）
+const POCO_PRO_LINE = 316666; // プロ昇格ライン（Pダイヤ）
+
+function calcPoco() {
+  const diamonds = parseInt(document.getElementById('poco-diamonds').value, 10);
+  if (!diamonds || diamonds < 0) { alert('Pダイヤ数を入力してください'); return; }
+
+  const revenue = diamonds * POCO_RATE;
+  const proRatio = diamonds / POCO_PRO_LINE * 100;
+
+  // ライバー収益
+  let h = '';
+  h += row('Pダイヤ数', diamonds.toLocaleString() + ' Pダイヤ');
+  h += row('ライバー収益（概算）', fmt(revenue), 'green');
+  h += `<div class="info-box green" style="margin-top:10px;font-size:0.78rem;">
+    プロ昇格ライン（316,666 Pダイヤ）の ${proRatio.toFixed(1)}%
+  </div>`;
+  document.getElementById('poco-result').innerHTML = h;
+
+  // 他プラットフォーム換算
+  const bc17 = Math.round(revenue / 0.56);
+  const ttDiamonds = Math.round(revenue / 1.71);
+  let c = '';
+  c += row('相当する17LIVE BC数', fmtBC(bc17), 'big');
+  c += row('相当するTikTokダイヤ数', ttDiamonds.toLocaleString() + ' ダイヤ', 'big');
+  c += `<div class="info-box" style="margin-top:10px;font-size:0.78rem;">
+    換算レート：1BC=¥0.56 / 1TikTokダイヤ=¥1.71
+  </div>`;
+  document.getElementById('poco-compare').innerHTML = c;
+}
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
     if (document.getElementById('panel-calc').classList.contains('active')) calc17();
-    else calcTikTok();
+    else if (document.getElementById('panel-sim').classList.contains('active')) calcTikTok();
+    else calcPoco();
   }
 });
 
