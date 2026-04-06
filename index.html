@@ -251,8 +251,7 @@
 
     <!-- TikTok入力 -->
     <div class="card tiktok">
-      <div class="card-title">TikTok 条件を入力</div>
-
+      <div class="card-title">TikTok 基本情報</div>
       <div class="form-grid">
         <div class="field">
           <label>獲得ダイヤ数</label>
@@ -268,6 +267,74 @@
             <span class="unit">円/ドル</span>
           </div>
         </div>
+      </div>
+
+      <div class="section-label">LIVE毎ミッション（毎配信）</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>配信時間の達成度</label>
+          <div class="input-row">
+            <select id="tt-live-time">
+              <option value="38">25分以上（MAX 38%）</option>
+              <option value="30">20〜24分（約30%）</option>
+              <option value="20">20分未満（最低 20%）</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>新規フォロワー数/配信</label>
+          <div class="input-row">
+            <select id="tt-new-followers">
+              <option value="2">5名以上（+2%）</option>
+              <option value="1.5">3〜4名（+1.5%）</option>
+              <option value="1">2名（+1%）</option>
+              <option value="0">2名未満（+0%）</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <label class="checkbox-row" style="margin-top:8px;">
+        <input type="checkbox" id="tt-penalty">
+        <span>コンテンツペナルティあり（−20%）</span>
+      </label>
+
+      <div class="section-label">ウィークリーミッション（週単位）</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>週あたり有効LIVE日数</label>
+          <div class="input-row">
+            <select id="tt-weekly-days">
+              <option value="8">2日以上（+8%）</option>
+              <option value="6">1日（+6%）</option>
+              <option value="0">0日（+0%）</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>アクティブファン数</label>
+          <div class="input-row">
+            <select id="tt-active-fans">
+              <option value="2">500名以上（+2%）</option>
+              <option value="1.5">150〜499名（+1.5%）</option>
+              <option value="1">100〜149名（+1%）</option>
+              <option value="0">100名未満（+0%）</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>リーグの達成度</label>
+          <div class="input-row">
+            <select id="tt-league">
+              <option value="3">昇格 / 最高リーグ更新（+3%）</option>
+              <option value="1">Aリーグ維持（+1%）</option>
+              <option value="0">Bリーグ未達（+0%）</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">エージェントインセンティブ条件</div>
+      <div class="form-grid">
         <div class="field">
           <label>月間配信時間</label>
           <div class="input-row">
@@ -616,24 +683,37 @@ function calc17() {
 
 // ==================== TikTok Simulation ====================
 function calcTikTok() {
-  const diamonds = parseInt(document.getElementById('tt-diamonds').value, 10);
-  const exRate   = parseFloat(document.getElementById('tt-rate').value) || 156;
-  const hours    = parseInt(document.getElementById('tt-hours').value, 10) || 0;
-  const days     = parseInt(document.getElementById('tt-days').value, 10) || 0;
-  const premium  = document.getElementById('tt-premium').checked;
-  const prevRank = parseInt(document.getElementById('tt-prev-rank').value, 10);
+  const diamonds    = parseInt(document.getElementById('tt-diamonds').value, 10);
+  const exRate      = parseFloat(document.getElementById('tt-rate').value) || 156;
+  const hours       = parseInt(document.getElementById('tt-hours').value, 10) || 0;
+  const days        = parseInt(document.getElementById('tt-days').value, 10) || 0;
+  const premium     = document.getElementById('tt-premium').checked;
+  const prevRank    = parseInt(document.getElementById('tt-prev-rank').value, 10);
+
+  // ミッション入力
+  const liveTimeRate    = parseFloat(document.getElementById('tt-live-time').value);
+  const newFollowerRate = parseFloat(document.getElementById('tt-new-followers').value);
+  const penalty         = document.getElementById('tt-penalty').checked ? -20 : 0;
+  const weeklyDaysRate  = parseFloat(document.getElementById('tt-weekly-days').value);
+  const activeFansRate  = parseFloat(document.getElementById('tt-active-fans').value);
+  const leagueRate      = parseFloat(document.getElementById('tt-league').value);
 
   if (!diamonds || diamonds < 0) { alert('ダイヤ数を入力してください'); return; }
 
+  // ミッション達成率合計
+  const missionRate = liveTimeRate + newFollowerRate + penalty + weeklyDaysRate + activeFansRate + leagueRate;
+  const clampedRate = Math.max(0, Math.min(53, missionRate)); // 0〜53%
+
   // Ranks
-  const curRank  = ttRank(diamonds);
+  const curRank    = ttRank(diamonds);
   const rankChange = prevRank === 0 ? '不明' : curRank > prevRank ? '向上' : curRank === prevRank ? '維持' : '減少';
 
-  // 1. Base pay (直接ライバーへ)
-  const baseUSD  = diamonds * 0.005;
-  const baseYen  = Math.round(baseUSD * exRate);
+  // 1. Base pay（ミッション達成率ベース、旧:50%固定→新:変動）
+  // 1ダイヤ=$0.01が全体価値、クリエイターはそのうちmissionRate%を取得
+  const baseUSD = diamonds * 0.01 * (clampedRate / 100);
+  const baseYen = Math.round(baseUSD * exRate);
 
-  // 2. Agency incentives (エージェント経由)
+  // 2. Agency incentives (エージェント経由・既存)
   const activeRate  = (hours > 0 && days > 0 && diamonds >= 100) ? lookupRate(hours, days, TT_ACTIVE)  : 0;
   const premRate    = (premium && hours > 0 && days > 0)          ? lookupRate(hours, days, TT_PREMIUM) : 0;
 
@@ -644,16 +724,13 @@ function calcTikTok() {
     else if (rankChange === '維持') rankupRate = TT_RANKUP[rIdx][1];
   }
 
-  const activeDiamonds = Math.min(diamonds, Infinity); // 全ダイヤ対象
-  const premDiamonds   = Math.min(diamonds, 10000000); // 優良は1000万上限
-
-  const activeUSD  = activeDiamonds * activeRate;
-  const premUSD    = premDiamonds   * premRate;
-  const rankupUSD  = diamonds       * rankupRate;
-
+  const premDiamonds      = Math.min(diamonds, 10000000);
+  const activeUSD         = diamonds    * activeRate;
+  const premUSD           = premDiamonds * premRate;
+  const rankupUSD         = diamonds    * rankupRate;
   const totalIncentiveUSD = activeUSD + premUSD + rankupUSD;
-  const incentiveLiver    = Math.round(totalIncentiveUSD * 0.8 * exRate);  // 80%→ライバー
-  const incentiveAgent    = Math.round(totalIncentiveUSD * 0.2 * exRate);  // 20%→エージェント
+  const incentiveLiver    = Math.round(totalIncentiveUSD * 0.8 * exRate);
+  const incentiveAgent    = Math.round(totalIncentiveUSD * 0.2 * exRate);
 
   const liverTotalYen = baseYen + incentiveLiver;
 
@@ -666,23 +743,38 @@ function calcTikTok() {
   if (prevRank > 0) h += `　　前月比：<strong>${rankChange}</strong>（前月ランク${prevRank}）`;
   h += `</div>`;
 
+  // ミッション達成率内訳
+  h += '<div class="section-label">ミッション達成率（2025年8月〜新制度）</div>';
+  h += row('① 配信時間', `+${liveTimeRate}%`);
+  h += row('② 新規フォロワー', `+${newFollowerRate}%`);
+  h += row('③ コンテンツペナルティ', penalty === 0 ? '<span class="muted">なし（0%）</span>' : `<span class="red">${penalty}%</span>`);
+  h += row('④ 週有効LIVE日数', `+${weeklyDaysRate}%`);
+  h += row('⑤ アクティブファン', `+${activeFansRate}%`);
+  h += row('⑥ リーグ達成度', `+${leagueRate}%`);
+  h += '<div class="divider"></div>';
+  const rateColor = clampedRate >= 50 ? 'green' : clampedRate >= 46 ? 'big' : 'orange';
+  h += row('クリエイター報酬率', `<strong>${clampedRate}%</strong>`, rateColor);
+  h += `<div class="info-box ${clampedRate >= 50 ? 'green' : 'yellow'}" style="margin-top:8px;font-size:0.78rem;">
+    旧制度（固定50%）との差：${clampedRate >= 50 ? '+' : ''}${(clampedRate - 50).toFixed(1)}%
+    　｜　MAX 53%まで達成可能
+  </div>`;
+
   h += '<div class="section-label">ライバー基本報酬（TikTokより直接支払い）</div>';
-  h += row(`ダイヤ × $0.005 × ${exRate}円`, fmt(baseYen));
+  h += row(`ダイヤ × $0.01 × ${clampedRate}% × ${exRate}円`, fmt(baseYen));
   h += `<div class="info-box yellow" style="margin-top:8px;font-size:0.78rem;">手数料：銀行振込 $3 / PayPal等 支払額の1.5%（換金時に差引）</div>`;
 
   h += '<div class="section-label">エージェントインセンティブ（事務所経由）</div>';
-
   const showIncentive = hours > 0 && days > 0;
   if (!showIncentive) {
-    h += `<div class="info-box">配信時間・配信日数を入力するとインセンティブも計算されます</div>`;
+    h += `<div class="info-box">月間配信時間・日数を入力するとインセンティブも計算されます</div>`;
   } else {
     const fmtRate = r => r > 0 ? `$${r}/ダイヤ` : '<span class="muted">対象外</span>';
-    h += row('アクティブ度インセンティブ（レート）', fmtRate(activeRate));
-    h += row('　└ 金額（ドル）', activeRate > 0 ? fmtUSD(activeUSD) : '<span class="muted">—</span>');
-    h += row('優良クリエイターインセンティブ（レート）', premium ? fmtRate(premRate) : '<span class="muted">○対象外</span>');
-    h += row('　└ 金額（ドル）', premRate > 0 ? fmtUSD(premUSD) : '<span class="muted">—</span>');
-    h += row('ランクアップインセンティブ（レート）', prevRank > 0 ? fmtRate(rankupRate) : '<span class="muted">前月ランク未設定</span>');
-    h += row('　└ 金額（ドル）', rankupRate > 0 ? fmtUSD(rankupUSD) : '<span class="muted">—</span>');
+    h += row('アクティブ度インセンティブ', fmtRate(activeRate));
+    h += row('　└ 金額', activeRate > 0 ? fmtUSD(activeUSD) : '<span class="muted">—</span>');
+    h += row('優良クリエイターインセンティブ', premium ? fmtRate(premRate) : '<span class="muted">○対象外</span>');
+    h += row('　└ 金額', premRate > 0 ? fmtUSD(premUSD) : '<span class="muted">—</span>');
+    h += row('ランクアップインセンティブ', prevRank > 0 ? fmtRate(rankupRate) : '<span class="muted">前月ランク未設定</span>');
+    h += row('　└ 金額', rankupRate > 0 ? fmtUSD(rankupUSD) : '<span class="muted">—</span>');
     h += '<div class="divider"></div>';
     h += row('インセンティブ合計', fmtUSD(totalIncentiveUSD));
     h += row('　うちライバーへ（80%）', fmt(incentiveLiver));
